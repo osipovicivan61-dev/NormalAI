@@ -76,7 +76,7 @@
 <body>
 <div class="wrap">
   <h1>Video Studio</h1>
-  <div class="sub">4 модели · аккаунт один раз, дальше всё автоматически</div>
+  <div class="sub">4 модели · каждый запрос идёт с нового аккаунта (регистрация автоматическая)</div>
 
   <div class="modes" id="modes">
     <button class="mode active" data-mode="h3"><b>MiniMax H3</b><span>h3-max.me · текст/фото → видео · до 8s</span></button>
@@ -194,10 +194,17 @@ function renderMode() {
   $('wrap-photo').style.display = c.photo !== 'none' ? 'block' : 'none';
   $('photo-note').textContent = c.photo === 'optional-ref' ? '(необязательно — фото-референс)' : '(необязательно — будет image-to-video)';
 
+  // h3: 480P держит 5–8s, 768P — максимум 5s
+  let durs = c.durations;
+  if (mode === 'h3' && $('resolution').value === '768P') durs = [5];
   const sel = $('duration');
-  sel.innerHTML = c.durations.map((d) => `<option value="${d}">${d} сек</option>`).join('');
+  const prev = Number(sel.value);
+  sel.innerHTML = durs.map((d) => `<option value="${d}">${d} сек</option>`).join('');
+  if (durs.includes(prev)) sel.value = String(prev);
   $('flow').textContent = 'путь: ' + c.flow;
 }
+
+$('resolution').addEventListener('change', renderMode);
 
 $('modes').addEventListener('click', (e) => {
   const b = e.target.closest('.mode');

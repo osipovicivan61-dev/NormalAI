@@ -4,16 +4,24 @@ const { chromium } = require('playwright');
 const stealth = require('./stealth');
 
 const ROOT = path.join(__dirname, '..');
-const SESSION_DIR = process.env.SESSION_DIR || path.join(ROOT, '.sessions');
+const SESSION_ROOT = process.env.SESSION_DIR || path.join(ROOT, '.sessions');
 const UPLOAD_DIR = path.join(ROOT, 'uploads');
 const VIDEO_DIR = path.join(ROOT, 'videos');
-const READY_MARK = path.join(SESSION_DIR, '.ready');
 
-for (const dir of [SESSION_DIR, UPLOAD_DIR, VIDEO_DIR]) fs.mkdirSync(dir, { recursive: true });
+for (const dir of [SESSION_ROOT, UPLOAD_DIR, VIDEO_DIR]) fs.mkdirSync(dir, { recursive: true });
 
 const HEADLESS = !process.env.HEADED;
 
-async function launch() {
+// каждый «слот» = отдельный профиль браузера = отдельный аккаунт на сервисе
+function slotDir(slot) {
+  const dir = path.join(SESSION_ROOT, 'slot-' + (slot || 1));
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+async function launch(slot = 1) {
+  const SESSION_DIR = slotDir(slot);
+  const READY_MARK = path.join(SESSION_DIR, '.ready');
   const ctx = await chromium.launchPersistentContext(SESSION_DIR, {
     headless: HEADLESS,
     viewport: { width: 1440, height: 900 },
@@ -31,15 +39,17 @@ async function launch() {
   await ctx.addInitScript(stealth.initScript());
   // доводим сторону до целого числа
   await stealth.sleep(stealth.rnd(300, 900));
+  ctx.__slot = slot || 1;
+  ctx.__ready = READY_MARK;
   return ctx;
 }
 
-function stampReady() {
-  fs.writeFileSync(READY_MARK, String(Date.now()));
+function stampReady(ctx) {
+  fs.writeFileSync(ctx.__ready, String(Date.now()));
 }
 
-function firstRun() {
-  return !fs.existsSync(READY_MARK);
+function firstRun(ctx) {
+  return !fs.existsSync(ctx.__ready);
 }
 
 // first visible locator among CSS candidates
@@ -88,7 +98,7 @@ async function ensureAuth(page, authSelector, log, register, { invert = false } 
   const locked = await (async () => {
     const loc = page.locator(authSelector).first();
     const vis = await loc.isVisible({ timeout: 12000 }).catch(() => false);
-    if (!vis) return invert;
+    if (!vis) return !invert;
     const dis = await loc.isDisabled().catch(() => false);
     return invert ? true : dis;
   })();
@@ -103,17 +113,19 @@ async function ensureAuth(page, authSelector, log, register, { invert = false } 
   const vis = await loc.isVisible({ timeout: 15000 }).catch(() => false);
   const stillLocked = invert ? vis : !vis;
   if (stillLocked) throw new Error('регистрация прошла, но вход не подтвердился: ' + authSelector);
-  stampReady();
+  stampReady(page.context());
   return true;
 }
 
-// captures a direct media url (mp4/webm) produced by the page
+// захватывает прямую ссылку на результат; реклама и примеры сайта отфильтрованы
 function captureMedia(page) {
   return new Promise((resolve) => {
     const onResp = (resp) => {
       const u = resp.url();
-      if (/\.(mp4|webm|m3u8)(\?|$)/i.test(u) && !/signup|avatar|font|icon/i.test(u)) {
+      if (/\.(mp4|webm|m3u8)(\?|$)/i.test(u) &&
+          !/site-assets|h3-home|example|signup|avatar|font|icon|doubleclick|googlesyndication|adsbygoogle|pagead|\/ads?\//i.test(u)) {
         page.off('response', onResp);
+        console.log('[media] ' + u);
         resolve(u);
       }
     };
@@ -128,13 +140,22 @@ async function downloadMedia(page, url, outFile) {
   return outFile;
 }
 
-// waits for any <video src> and returns its url
+// ждёт настоящее результат-видео (не демо-ролики сайта), возвращает url
 async function waitForVideoElement(page, timeout = 600000) {
-  await page.waitForSelector('video[src], video source', { timeout });
-  return page.evaluate(() => {
-    const v = document.querySelector('video[src]') || document.querySelector('video');
-    return v.currentSrc || v.src || (v.querySelector('source') && v.querySelector('source').src);
-  });
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const url = await page.evaluate(() => {
+      const re = /site-assets|example|home|inner|product-|everyday|ceramic|demo|preview/i;
+      for (const v of document.querySelectorAll('video')) {
+        const s = v.currentSrc || v.src || (v.querySelector('source') && v.querySelector('source').src) || '';
+        if (s && !re.test(s)) return s;
+      }
+      return null;
+    }).catch(() => null);
+    if (url) return url;
+    await page.waitForTimeout(3000);
+  }
+  throw new Error('видео не появилось');
 }
 
 module.exports = {

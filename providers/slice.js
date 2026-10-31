@@ -16,7 +16,7 @@ async function radioByLabel(page, label, timeout = 6000) {
 
 module.exports = async function run(job, log) {
   const p = job.params;
-  const ctx = await launch();
+  const ctx = await launch(job.slot || 1);
   const page = await ctx.newPage();
   try {
     await page.goto('https://slice.video/videos', { waitUntil: 'domcontentloaded', timeout: 60000 });

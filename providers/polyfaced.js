@@ -37,7 +37,9 @@ async function runVideo(page, job, log) {
   log('промт введён');
 
   const dur = Math.min(5, Math.max(1, p.duration));
-  const durBtn = page.locator(`button:has-text("${dur}s"), label:has-text("${dur} sec"), option[value="${dur}"]`).first();
+  const durBtn = page.locator(
+    `button:has-text("${dur}s"), button:has-text("${dur} sec"), button:text-is("${dur}"), [role="radio"]:has-text("${dur}")`
+  ).first();
   await durBtn.click({ timeout: 5000 }).catch(() => log('кнопка длительности не найдена'));
   log(`длительность: ${dur}s (kling max 5)`);
 
@@ -64,8 +66,10 @@ async function runPhoto(page, job, log) {
   await fillAny(page, ['textarea', '[contenteditable="true"]', 'input[type="text"]'], p.prompt);
   log('промт введён');
 
-  const media = page.waitForResponse((r) => /\.(png|jpe?g|webp)(\?|$)/i.test(r.url()), { timeout: 600000 })
-    .then((r) => r.url());
+  const media = page.waitForResponse((r) =>
+      /\.(png|jpe?g|webp)(\?|$)/i.test(r.url()) &&
+      !/icon|logo|avatar|thumb|preset|showcase|favicon|og-/i.test(r.url()),
+    { timeout: 600000 }).then((r) => r.url());
   await clickAny(page, ['button:has-text("Generate")', 'button:has-text("Create")']);
   log('генерация фото запущена…');
 
@@ -80,10 +84,9 @@ async function runPhoto(page, job, log) {
 async function waitResult(page, media, log) {
   const url = await Promise.race([
     media,
-    waitForVideoElement(page).catch(() => null),
+    waitForVideoElement(page),
     new Promise((_, rej) => setTimeout(() => rej(new Error('timeout генерации (12 мин)')), 720000)),
   ]);
-  if (!url) throw new Error('видео не появилось');
   const ext = path.extname(new URL(url, 'https://polyfaced.com/').pathname) || '.mp4';
   const out = path.join(VIDEO_DIR, `kling-${job.id}${ext}`);
   await downloadMedia(page, url, out);
@@ -92,7 +95,7 @@ async function waitResult(page, media, log) {
 }
 
 module.exports = async function run(job, log, kind) {
-  const ctx = await launch();
+  const ctx = await launch(job.slot || 1);
   const page = await ctx.newPage();
   try {
     await openStudio(page, log);

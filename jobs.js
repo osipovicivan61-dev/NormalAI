@@ -8,6 +8,16 @@ let running = false;
 
 const MODES = ['h3', 'kling', 'photo', 'shorts'];
 
+// каждый запрос получает свежий слот = свежий аккаунт ( temp-почта → регистрация )
+function nextSlot() {
+  const f = path.join(path.dirname(VIDEO_DIR), '.sessions', '.slot-counter');
+  let n = 1;
+  try { n = Number(fs.readFileSync(f, 'utf8')) || 1; } catch (e) {}
+  n += 1;
+  try { fs.writeFileSync(f, String(n)); } catch (e) {}
+  return n;
+}
+
 function createJob(body, file) {
   const id = crypto.randomBytes(6).toString('hex');
   const job = {
@@ -28,6 +38,7 @@ function createJob(body, file) {
     status: 'queued',
     logs: [],
     video: null,
+    slot: nextSlot(),
     createdAt: Date.now(),
   };
   jobs.set(id, job);
