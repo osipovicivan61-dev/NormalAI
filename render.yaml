@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: video-studio
+    runtime: node
+    plan: free
+    buildCommand: npm install && npx playwright install --with-deps chromium
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: SESSION_DIR
+        value: /opt/render/project/src/video-studio/.sessions
+      # Render работает headless — HEADED на сервере не бывает,
+      # логин делается локально, .sessions запихивается в репозиторий

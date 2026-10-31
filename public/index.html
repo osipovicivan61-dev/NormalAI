@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video Studio</title>
+<style>
+  :root {
+    --bg: #0b0b10; --panel: #14141c; --panel2: #1b1b26; --line: #262633;
+    --text: #ececf1; --muted: #8b8b9e; --acc: #7c5cff; --ok: #3ddc84; --err: #ff5c5c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 Inter, system-ui, sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -.5px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 26px; }
+  .modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 22px; }
+  .mode {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px; cursor: pointer; transition: .15s; text-align: left; color: var(--text);
+  }
+  .mode:hover { border-color: #3a3a4d; }
+  .mode.active { border-color: var(--acc); background: #191527; }
+  .mode b { display: block; font-size: 14px; margin-bottom: 3px; }
+  .mode span { font-size: 11.5px; color: var(--muted); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  label { display: block; font-size: 12.5px; color: var(--muted); margin: 16px 0 6px; }
+  label:first-child { margin-top: 0; }
+  textarea, input[type=text], select {
+    width: 100%; background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 9px; padding: 11px 12px; font: inherit; outline: none;
+  }
+  textarea:focus, input:focus, select:focus { border-color: var(--acc); }
+  textarea { min-height: 96px; resize: vertical; }
+  .row { display: flex; gap: 14px; }
+  .row > div { flex: 1; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+    border-radius: 20px; padding: 7px 15px; font-size: 13px; cursor: pointer;
+  }
+  .chip.active { background: var(--acc); border-color: var(--acc); }
+  .drop {
+    border: 1.5px dashed var(--line); border-radius: 11px; padding: 24px; text-align: center;
+    color: var(--muted); font-size: 13px; cursor: pointer; transition: .15s;
+  }
+  .drop:hover, .drop.has { border-color: var(--acc); color: var(--text); }
+  .go {
+    margin-top: 24px; width: 100%; background: var(--acc); color: #fff; border: 0;
+    border-radius: 11px; padding: 15px; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .go:disabled { opacity: .5; cursor: wait; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .jobs { margin-top: 26px; display: grid; gap: 12px; }
+  .job { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; padding: 16px 18px; }
+  .job-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .job-title { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font-size: 11px; padding: 4px 10px; border-radius: 20px; white-space: nowrap; border: 1px solid var(--line); }
+  .badge.queued { color: var(--muted); }
+  .badge.running { color: #ffc85c; border-color: #5c4a1f; }
+  .badge.done { color: var(--ok); border-color: #1f5c3a; }
+  .badge.error { color: var(--err); border-color: #5c1f1f; }
+  .logs { margin-top: 10px; font: 12px/1.7 ui-monospace, monospace; color: var(--muted); white-space: pre-wrap; }
+  .job video { width: 100%; max-height: 420px; border-radius: 10px; margin-top: 12px; background: #000; }
+  .dl { display: inline-block; margin-top: 10px; color: var(--acc); font-size: 13px; text-decoration: none; }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 30px 0; }
+  .toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+    background: #22222e; border: 1px solid var(--line); border-radius: 10px;
+    padding: 11px 18px; font-size: 13px; opacity: 0; transition: .3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  @media (max-width: 860px) { .modes { grid-template-columns: repeat(2, 1fr); } .row { flex-direction: column; gap: 0; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Video Studio</h1>
+  <div class="sub">4 модели · аккаунт один раз, дальше всё автоматически</div>
+
+  <div class="modes" id="modes">
+    <button class="mode active" data-mode="h3"><b>MiniMax H3</b><span>h3-max.me · текст/фото → видео · до 8s</span></button>
+    <button class="mode" data-mode="kling"><b>Kling 2.1</b><span>polyfaced.com · текст → видео · до 5s</span></button>
+    <button class="mode" data-mode="photo"><b>Фото</b><span>polyfaced.com · GPT Image 2 / Nano Banana</span></button>
+    <button class="mode" data-mode="shorts"><b>TikTok / Shorts</b><span>slice.video · готовый вертикальный ролик 15s</span></button>
+  </div>
+
+  <form class="panel" id="form" enctype="multipart/form-data">
+    <label>Промт</label>
+    <textarea id="prompt" placeholder="что должно случиться в видео?" required></textarea>
+
+    <div class="row" id="row-video">
+      <div>
+        <label>Длительность</label>
+        <select id="duration"></select>
+      </div>
+      <div id="wrap-aspect">
+        <label>Соотношение сторон</label>
+        <select id="aspect">
+          <option>16:9</option><option>9:16</option><option>1:1</option>
+          <option>4:3</option><option>3:4</option><option>21:9</option>
+        </select>
+      </div>
+      <div id="wrap-res">
+        <label>Разрешение</label>
+        <select id="resolution"><option>480P</option><option>768P</option></select>
+      </div>
+    </div>
+
+    <div id="wrap-photo-model" style="display:none">
+      <label>Модель фото</label>
+      <div class="chips" id="photoModels">
+        <button type="button" class="chip active" data-v="gpt-image-2">GPT Image 2</button>
+        <button type="button" class="chip" data-v="nano-banana">Nano Banana</button>
+      </div>
+    </div>
+
+    <div id="wrap-short" style="display:none">
+      <div class="row">
+        <div>
+          <label>Визуал</label>
+          <div class="chips" id="visuals">
+            <button type="button" class="chip active" data-v="animated">Animated video</button>
+            <button type="button" class="chip" data-v="still">Still images</button>
+          </div>
+        </div>
+        <div>
+          <label>Кто говорит</label>
+          <div class="chips" id="speaker">
+            <button type="button" class="chip active" data-v="narrator">Нарратор</button>
+            <button type="button" class="chip" data-v="characters">Персонажи</button>
+          </div>
+        </div>
+      </div>
+      <label>Стиль</label>
+      <select id="style">
+        <option value="auto">Auto</option><option value="Photoreal">Photoreal</option><option value="Cinematic">Cinematic</option>
+      </select>
+      <div class="hint">Длина у trial-аккаунта всегда ~15s</div>
+    </div>
+
+    <div id="wrap-photo">
+      <label>Фото <span id="photo-note"></span></label>
+      <div class="drop" id="drop">перетащи фото сюда или нажми (png / jpg / webp, до 20 МБ)</div>
+      <input type="file" id="file" accept="image/png,image/jpeg,image/webp" hidden>
+    </div>
+
+    <button class="go" id="go" type="submit">Запустить генерацию</button>
+    <div class="hint" id="flow"></div>
+  </form>
+
+  <div class="jobs" id="jobs"><div class="empty">пока пусто</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let mode = 'h3';
+let file = null;
+
+const $ = (id) => document.getElementById(id);
+const CONFIG = {
+  h3:     { durations: [5,6,7,8], photo: 'optional', flow: 'h3-max.me → вход → режим → промт → генерация → скачивание' },
+  kling:  { durations: [1,2,3,4,5], photo: 'none', flow: 'polyfaced.com → вход → Kling 2.1 → промт → генерация → скачивание' },
+  photo:  { durations: [], photo: 'optional-ref', flow: 'polyfaced.com → вход → AI Photo → модель → референс → генерация' },
+  shorts: { durations: [15], photo: 'none', flow: 'slice.video → вход → New Slice → тема/визуал/голос/стиль → 15s → скачивание' },
+};
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function chipGroup(id) {
+  $(id).addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    $(id).querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+    b.classList.add('active');
+  });
+}
+chipGroup('photoModels'); chipGroup('visuals'); chipGroup('speaker');
+
+function renderMode() {
+  const c = CONFIG[mode];
+  document.querySelectorAll('.mode').forEach((m) => m.classList.toggle('active', m.dataset.mode === mode));
+
+  $('row-video').style.display = c.durations.length && mode !== 'shorts' ? 'flex' : 'none';
+  $('wrap-aspect').style.display = mode === 'h3' ? 'block' : 'none';
+  $('wrap-res').style.display = mode === 'h3' ? 'block' : 'none';
+  $('wrap-photo-model').style.display = mode === 'photo' ? 'block' : 'none';
+  $('wrap-short').style.display = mode === 'shorts' ? 'block' : 'none';
+  $('wrap-photo').style.display = c.photo !== 'none' ? 'block' : 'none';
+  $('photo-note').textContent = c.photo === 'optional-ref' ? '(необязательно — фото-референс)' : '(необязательно — будет image-to-video)';
+
+  const sel = $('duration');
+  sel.innerHTML = c.durations.map((d) => `<option value="${d}">${d} сек</option>`).join('');
+  $('flow').textContent = 'путь: ' + c.flow;
+}
+
+$('modes').addEventListener('click', (e) => {
+  const b = e.target.closest('.mode');
+  if (!b) return;
+  mode = b.dataset.mode;
+  renderMode();
+});
+
+$('drop').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', (e) => {
+  file = e.target.files[0] || null;
+  $('drop').textContent = file ? file.name : 'перетащи фото сюда или нажми (png / jpg / webp, до 20 МБ)';
+  $('drop').classList.toggle('has', !!file);
+});
+$('drop').addEventListener('dragover', (e) => e.preventDefault());
+$('drop').addEventListener('drop', (e) => {
+  e.preventDefault();
+  file = e.dataTransfer.files[0] || null;
+  if (file) { $('drop').textContent = file.name; $('drop').classList.add('has'); }
+});
+
+$('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const prompt = $('prompt').value.trim();
+  if (!prompt) return toast('промт пустой');
+
+  const fd = new FormData();
+  fd.append('mode', mode);
+  fd.append('prompt', prompt);
+  fd.append('duration', $('duration').value || '15');
+  fd.append('aspect', $('aspect').value);
+  fd.append('resolution', $('resolution').value);
+  fd.append('photoModel', document.querySelector('#photoModels .active').dataset.v);
+  fd.append('visuals', document.querySelector('#visuals .active').dataset.v);
+  fd.append('speaker', document.querySelector('#speaker .active').dataset.v);
+  fd.append('style', $('style').value);
+  if (file) fd.append('photo', file);
+
+  $('go').disabled = true;
+  try {
+    const r = await fetch('/api/generate', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'ошибка');
+    toast('задача в очереди');
+    poll();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    $('go').disabled = false;
+  }
+});
+
+const LABEL = { h3: 'MiniMax H3', kling: 'Kling 2.1', photo: 'Фото', shorts: 'TikTok / Shorts' };
+const BADGE = { queued: 'в очереди', running: 'работает', done: 'готово', error: 'ошибка' };
+
+async function poll() {
+  const r = await fetch('/api/jobs');
+  const jobs = (await r.json()).sort((a, b) => b.createdAt - a.createdAt);
+  const box = $('jobs');
+  if (!jobs.length) { box.innerHTML = '<div class="empty">пока пусто</div>'; return; }
+
+  box.innerHTML = jobs.map((j) => `
+    <div class="job" data-id="${j.id}">
+      <div class="job-head">
+        <div class="job-title">${LABEL[j.mode]} — ${escapeHtml(j.params.prompt).slice(0, 90)}</div>
+        <div class="badge ${j.status}">${BADGE[j.status]}</div>
+      </div>
+      ${j.logs && j.logs.length ? `<div class="logs">${j.logs.map(escapeHtml).join('\n')}</div>` : ''}
+      ${j.video ? `<video src="${j.video}" controls preload="metadata"></video><a class="dl" href="${j.video}" download>скачать ↗</a>` : ''}
+    </div>`).join('');
+
+  if (jobs.some((j) => j.status === 'queued' || j.status === 'running')) setTimeout(poll, 2500);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+renderMode();
+poll();
+</script>
+</body>
+</html>
