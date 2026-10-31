@@ -3,7 +3,7 @@ const path = require('path');
 const {
   launch, clickAny, fillAny, text, clickText, ensureAuth,
   captureMedia, downloadMedia, waitForVideoElement, VIDEO_DIR, UPLOAD_DIR,
-} = require('./browser');
+} = require('../automation/browser');
 
 const SITE = 'https://h3-max.me/';
 

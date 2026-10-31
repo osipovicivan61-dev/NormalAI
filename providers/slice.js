@@ -3,7 +3,7 @@ const path = require('path');
 const {
   launch, clickAny, fillAny, any, clickText, ensureAuth,
   captureMedia, downloadMedia, waitForVideoElement, VIDEO_DIR,
-} = require('./browser');
+} = require('../automation/browser');
 
 const SITE = 'https://slice.video/';
 

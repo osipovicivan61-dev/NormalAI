@@ -3,7 +3,7 @@ const path = require('path');
 const {
   launch, clickAny, fillAny, any, text, ensureAuth,
   captureMedia, downloadMedia, waitForVideoElement, VIDEO_DIR, UPLOAD_DIR,
-} = require('./browser');
+} = require('../automation/browser');
 
 const SITE = 'https://polyfaced.com/';
 

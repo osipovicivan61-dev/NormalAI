@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
-const { VIDEO_DIR } = require('./browser');
+const { VIDEO_DIR } = require('./automation/browser');
 
 const jobs = new Map();
 let running = false;
