@@ -42,22 +42,23 @@ function log(job, line) {
 
 async function runJob(job) {
   job.status = 'running';
+  const L = (line) => log(job, line);
   log(job, `старт режима ${job.mode}`);
   try {
     let video;
-    if (job.mode === 'h3') video = await require('./providers/h3max')(job, log);
-    else if (job.mode === 'kling') video = await require('./providers/polyfaced')(job, log, 'video');
-    else if (job.mode === 'photo') video = await require('./providers/polyfaced')(job, log, 'photo');
-    else if (job.mode === 'shorts') video = await require('./providers/slice')(job, log);
+    if (job.mode === 'h3') video = await require('./providers/h3max')(job, L);
+    else if (job.mode === 'kling') video = await require('./providers/polyfaced')(job, L, 'video');
+    else if (job.mode === 'photo') video = await require('./providers/polyfaced')(job, L, 'photo');
+    else if (job.mode === 'shorts') video = await require('./providers/slice')(job, L);
 
     const out = path.join(VIDEO_DIR, `${job.id}${path.extname(video) || '.mp4'}`);
     fs.copyFileSync(video, out);
     job.video = `/videos/${job.id}${path.extname(video) || '.mp4'}`;
     job.status = 'done';
-    log(job, 'готово');
+    L('готово');
   } catch (err) {
     job.status = 'error';
-    log(job, 'ошибка: ' + (err && err.message ? err.message : String(err)));
+    L('ошибка: ' + (err && err.message ? err.message : String(err)));
     if (process.env.DEBUG) console.error(err);
   }
 }

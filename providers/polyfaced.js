@@ -30,8 +30,8 @@ async function pickModel(page, want, log) {
 
 async function runVideo(page, job, log) {
   const p = job.params;
-  await clickAny(page, ['a[href="/video"]', 'button:has-text("Video")', 'text=Video to Video', 'text=Text to Video'], 8000)
-    .catch(() => log('вкладка Video не найдена, иду по странице студии'));
+  await page.goto('https://polyfaced.com/studio/video', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(2500);
 
   await fillAny(page, ['textarea', '[contenteditable="true"]', 'input[type="text"]'], p.prompt);
   log('промт введён');
@@ -49,8 +49,8 @@ async function runVideo(page, job, log) {
 
 async function runPhoto(page, job, log) {
   const p = job.params;
-  await clickAny(page, ['a[href="/image"]', 'button:has-text("Image")', 'text=AI Photo', 'text=Image Studio'], 8000)
-    .catch(() => log('вкладка Photo не найдена, иду по странице студии'));
+  await page.goto('https://polyfaced.com/studio/image', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(2500);
 
   await pickModel(page, p.photoModel, log);
 

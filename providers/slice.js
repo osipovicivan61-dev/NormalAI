@@ -22,7 +22,7 @@ module.exports = async function run(job, log) {
     await page.goto('https://slice.video/videos', { waitUntil: 'domcontentloaded', timeout: 60000 });
     log('slice.video открыт');
 
-    await ensureAuth(page, 'a:has-text("New slice"), a[href*="videos"]', log,
+    await ensureAuth(page, 'a:has-text("New slice")', log,
       require('../automation/register').registerSlice);
 
     await clickAny(page, ['a:has-text("New Slice")', 'a[href*="slices/new"]', 'button:has-text("New Slice")'], 15000);
