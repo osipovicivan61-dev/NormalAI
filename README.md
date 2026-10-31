@@ -1,33 +1,32 @@
 # Video Studio
 
 Сайт-обёртка над четырьмя генераторами: MiniMax H3, Kling 2.1, AI Photo, TikTok/Shorts.
-Playwright сам открывает нужный сервис, подставляет промт/фото/настройки, ждёт генерацию
-и скачивает результат в `videos/`.
+Playwright сам открывает нужный сервис, при отсутствии аккаунта **регистрирует его сам**
+через temp-почту, подставляет промт/фото/настройки, ждёт генерацию и скачивает результат.
 
-## Запуск
+## Запуск (локально)
 
 ```bash
-cd video-studio
 npm install
 npm run install-browser
-npm start            # или npm run headed — браузер видимый
+npm start
 ```
 
-Открыть http://localhost:3000
+Открыть http://localhost:3000 — всё, консоль больше не нужна.
 
-## Первый запуск (вход в аккаунты)
+## Авто-регистрация
 
-Сервисы входят один раз — куки сохраняются в `.sessions/`:
+Аккаунты создаются сами на первом запуске каждого сервиса, куки падают в `.sessions/`:
 
-1. `set HEADED=1 && npm start`
-2. Запусти любую генерацию — откроется окно браузера
-3. Залогинься (или зарегистрируйся) на нужном сайте, вернись в консоль, нажми **Enter**
-4. Повтори для остальных сервисов — дальше всё без участия
+| Сервис | Как регистрируется | Кредиты |
+|---|---|---|
+| h3-max.me | Sign up форма → temp-gmail → письмо «Confirm email» → ссылка подтверждения | 40 |
+| polyfaced.com | /sign-up форма → вход сразу, без подтверждения | 20 |
+| slice.video | email → 6-значный код из темы письма → дашборд | 200, trial 15s |
 
-Сколько нужно аккаунтов:
-- **h3-max.me** — 40 кредитов на регистрацию (хватает на 5s@768P или 8s@480P)
-- **polyfaced.com** — 20 кредитов
-- **slice.video** — 200 кредитов, trial-видео до 15s
+Почта — emailnator.com: генерируется адрес (`/inbox#...`), письма читаются автоматически
+(код — прямо в теме, ссылка — в body письма внутри iframe). Если сервис сессию выкинет —
+регистрация повторится сама.
 
 ## Режимы
 
@@ -35,85 +34,66 @@ npm start            # или npm run headed — браузер видимый
 |---|---|---|---|
 | MiniMax H3 | h3-max.me | 5–8 сек | да (image-to-video) |
 | Kling 2.1 | polyfaced.com | 1–5 сек | нет |
-| Фото | polyfaced.com | — | референс опционально, модель GPT Image 2 / Nano Banana |
+| Фото | polyfaced.com | — | референс опционально, GPT Image 2 / Nano Banana |
 | TikTok/Shorts | slice.video | 15 сек (trial) | нет, + визуал/голос/стиль |
 
 ## Структура
 
 ```
-server.js            — express: POST /api/generate, GET /api/jobs
-jobs.js              — очередь (последовательно, один браузер за раз)
-automation/browser.js— запуск playwright, хелперы поиска/скачивания, сессии
-providers/h3max.js   — MiniMax H3
-providers/polyfaced.js — Kling 2.1 + AI Photo
-providers/slice.js   — TikTok/Shorts
-public/index.html    — интерфейс
-videos/              — готовые ролики
+server.js               — express: POST /api/generate, GET /api/jobs
+jobs.js                 — очередь (последовательно, один браузер за раз)
+automation/browser.js   — запуск playwright, хелперы, сессии, ensureAuth
+automation/stealth.js   — антидетект + человеческий тайминг
+automation/mailbox.js   — emailnator: адрес, приём писем, коды и ссылки
+automation/register.js  — авто-регистрация трёх сервисов
+providers/h3max.js      — MiniMax H3
+providers/polyfaced.js  — Kling 2.1 + AI Photo
+providers/slice.js      — TikTok/Shorts
+public/index.html       — интерфейс
+render.yaml             — конфиг для Render
+videos/                 — готовые ролики
 ```
 
 ## Маскировка
 
 `automation/stealth.js` подключается к каждому запуску браузера:
 
-- снимает `navigator.webdriver`, маркеры Chrome DevTools/CDP и webdriver-флаги blink
-- подменяет UA, языки, плагины, hardwareConcurrency — выглядит как обычный Chrome под Windows
-- клики — движение мыши по дуге с дрожанием и паузами 80–240мс
-- печать — реальная скорость 35–95мс на клавишу вместо мгновенного `fill`
+- снимает `navigator.webdriver`, маркеры Chrome DevTools/CDP, webdriver-флаги blink
+- подменяет UA, языки, плугины, hardwareConcurrency — живой Chrome под Windows
+- клики — движение мыши по дуге с дрожанием, паузы 80–240мс
+- печать — 35–95мс на клавишу вместо мгновенного `fill`
 - рандомные паузы 300–900мс перед стартом страницы
-- Accept-Language и timezone зафиксированы единообразно на всех переходах
+- Accept-Language и timezone единые на всех переходах
 
-Сессия одна и та же (куки в `.sessions/`), поведение повторяет живого человека — антибот-скриптам на стороне сервисов не за что зацепиться.
+## Деплой на Render — без консоли
 
-## Деплой на Render
+1. **GitHub:** зайди в репозиторий → **Add file → Upload files** → выбери папку
+   `video-studio` целиком (или перетащи её) → **Commit**. Веб-загрузка берёт все обычные
+   файлы и папки — этого достаточно, ничего дополнительно добавлять не надо.
+   Репозиторий лучше приватный.
 
-Путь проекта: `C:\Users\Asus\OneDrive\Документы\Default Project\video-studio`
+2. **Render:** render.com → **New +** → **Blueprint** → подключи репозиторий →
+   Render сам прочитает `render.yaml` → **Apply**.
 
-**Важно:** на Render нет headed-браузера, поэтому логин в сервисы делается локально и куки закатываются в репозиторий один раз.
+3. Через пару минут выдаёт ссылку `https://video-studio-xxxx.onrender.com` — открыть и
+   пользоваться. На первом запуске сервисы зарегистрируются сами.
 
-1. **Логин локально** (один раз, если ещё не сделан):
-
-   ```powershell
-   cd "C:\Users\Asus\OneDrive\Документы\Default Project\video-studio"
-   npm install
-   npm run install-browser
-   set HEADED=1 && npm start
-   ```
-
-   открылось окно → залогинься на нужном сайте → Enter в консоли. повторить для h3-max / polyfaced / slice. `.sessions/` заполнится куками.
-
-2. **Пуш в GitHub** (репозиторий **приватный** — там лежат куки):
-
-   ```powershell
-   cd "C:\Users\Asus\OneDrive\Документы\Default Project\video-studio"
-   git init
-   git add .
-   git commit -m "video studio"
-   git remote add origin https://github.com/<ты>/video-studio.git
-   git push -u origin main
-   ```
-
-   `.gitignore` прячет `node_modules/`, `uploads/`, `videos/`, но `.sessions/` намеренно остаётся — без него Render будет просить логин, которого дать не сможешь.
-
-3. **Render:**
-   - New → Blueprint → выбрать репозиторий → Render сам подхватит `render.yaml`
-   - build: `npm install && npx playwright install --with-deps chromium` (уже в конфиге)
-   - старт: `npm start`, порт берётся из `process.env.PORT` — уже поддержано
-   - выдаётся URL вида `https://video-studio.onrender.com`
-
-4. **После деплоя:** открыть URL → 4 режима → генерация. Видео складываются в `videos/` (эфемерные, качай сразу после генерации).
+build идёт по конфигу: `npm install && npx playwright install --with-deps chromium`,
+старт `npm start`, порт из `process.env.PORT`.
 
 нюансы:
-- free-план засыпает после простоя — проснётся через ~30с после запроса, но генерация, идущая в момент засыпания, оборвётся; для длинных роликов бери Starter
-- после добавления зависимостей/сессий — просто `git push`, Render пересоберёт
-- если сервис разлогинил аккаунт — залогинься локально и запушь `.sessions/` заново
+- free-план засыпает после простоя (~30с на пробуждение), генерация в момент засыпания
+  оборвётся — для длинных роликов бери Starter
+- видео на сервере эфемерные — качай сразу после готовности
+- после любого обновления файлов — просто перезалить/запушить, Render пересоберёт
 
 ## Про селекторы
 
-Селекторы для h3-max.me сняты с живой страницы (`data-testid`), для polyfaced и slice —
-эвристические (текстовые лейблы). Если шаг не находится — смотри лог в интерфейсе,
-нужный кусок лежит в `providers/*.js` в начале файла.
+Все формы сняты с живых страниц: h3-max — по `data-testid`, slice и polyfaced —
+по реальным input name/placeholder. Логи каждого шага видны в карточке задачи.
+Если шаг не найдётся — нужный кусок лежит в `automation/register.js` или `providers/*.js`.
 
-Отладка вручную:
+Отладка с окном браузера:
 
 ```bash
 set HEADED=1 & set DEBUG=1 & npm start

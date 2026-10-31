@@ -16,7 +16,7 @@ module.exports = async function run(job, log) {
     log('h3-max открыт');
 
     await ensureAuth(page, '[data-testid="video-mode-text"]', log,
-      'вход на h3-max.me (email + пароль, письмо с подтверждением приходит на почту)');
+      require('../automation/register').registerH3);
 
     const mode = p.photoRef ? 'image' : 'text';
     await clickAny(page, [`[data-testid="video-mode-${mode}"]`]);

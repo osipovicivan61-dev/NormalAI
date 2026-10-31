@@ -10,8 +10,9 @@ const SITE = 'https://polyfaced.com/';
 async function openStudio(page, log) {
   await page.goto(SITE, { waitUntil: 'domcontentloaded', timeout: 60000 });
   log('polyfaced открыт');
-  await ensureAuth(page, 'button:has-text("Sign in"), a:has-text("Log in"), [data-testid="login"]', log,
-    'вход на polyfaced.com (бесплатно, 20 кредитов после регистрации)');
+  // залогинен = ссылки "Start free / sign-up" нет
+  await ensureAuth(page, 'a[href*="/sign-up"]', log,
+    require('../automation/register').registerPolyfaced, { invert: true });
 }
 
 async function pickModel(page, want, log) {

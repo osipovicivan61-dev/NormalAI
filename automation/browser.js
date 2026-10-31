@@ -83,21 +83,26 @@ async function clickText(page, re, opts = {}) {
   return loc;
 }
 
-// waits until the generator is usable; if not, opens login and waits for him to finish it
-async function ensureAuth(page, authSelector, log, hint) {
-  const ok = await page.locator(authSelector).first().isVisible({ timeout: 12000 }).catch(() => false);
-  const enabled = ok ? !(await page.locator(authSelector).first().isDisabled().catch(() => true)) : false;
-  if (enabled) return true;
+// если аккаунта нет — регистрирует сам (temp-почта), сессия остаётся в .sessions
+async function ensureAuth(page, authSelector, log, register, { invert = false } = {}) {
+  const locked = await (async () => {
+    const loc = page.locator(authSelector).first();
+    const vis = await loc.isVisible({ timeout: 12000 }).catch(() => false);
+    if (!vis) return invert;
+    const dis = await loc.isDisabled().catch(() => false);
+    return invert ? true : dis;
+  })();
 
-  if (HEADLESS) {
-    log('нет входа — перезапусти с HEADED=1 и залогинься один раз');
-    throw new Error('not authenticated: ' + hint);
-  }
+  if (!locked) return true;
 
-  log(hint);
-  log('окно браузера открыто — залогинься, потом нажми Enter здесь…');
-  await new Promise((r) => process.stdin.once('data', r));
-  await page.waitForTimeout(1500);
+  log('аккаунта нет — авто-регистрация…');
+  await register(page, log);
+  await page.waitForTimeout(3000);
+
+  const loc = page.locator(authSelector).first();
+  const vis = await loc.isVisible({ timeout: 15000 }).catch(() => false);
+  const stillLocked = invert ? vis : !vis;
+  if (stillLocked) throw new Error('регистрация прошла, но вход не подтвердился: ' + authSelector);
   stampReady();
   return true;
 }
